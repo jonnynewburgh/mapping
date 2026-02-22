@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Public Data Finder</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .hero-bg { background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #0284c7 100%); }
+    .spinner {
+      border: 3px solid #e5e7eb;
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      width: 36px;
+      height: 36px;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .card { transition: box-shadow 0.15s, transform 0.15s; }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.09); }
+    .line-clamp-2 {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+
+  <!-- ── Hero ── -->
+  <header class="hero-bg text-white">
+    <div class="max-w-4xl mx-auto px-4 py-16 text-center">
+      <p class="text-5xl mb-3">🔍</p>
+      <h1 class="text-4xl font-bold tracking-tight mb-2">Public Data Finder</h1>
+      <p class="text-blue-200 text-lg mb-10 max-w-2xl mx-auto">
+        Discover freely available datasets from government portals,
+        international organizations, and research repositories — all in one search.
+      </p>
+
+      <!-- Search bar -->
+      <div class="flex gap-2 max-w-2xl mx-auto">
+        <input
+          type="text"
+          id="searchInput"
+          placeholder="Try: climate, housing prices, COVID, poverty, GDP…"
+          class="flex-1 px-5 py-3.5 rounded-xl text-gray-900 text-base shadow-md
+                 focus:outline-none focus:ring-2 focus:ring-blue-300"
+          autofocus
+        />
+        <button
+          id="searchBtn"
+          onclick="performSearch()"
+          class="px-7 py-3.5 bg-orange-500 hover:bg-orange-400 text-white font-semibold
+                 rounded-xl shadow-md transition-colors whitespace-nowrap"
+        >
+          Search
+        </button>
+      </div>
+
+      <!-- Quick searches -->
+      <div class="mt-5 flex flex-wrap justify-center gap-2 text-sm">
+        <span class="text-blue-300">Popular:</span>
+        <button onclick="quickSearch('climate change')"  class="chip">climate change</button>
+        <button onclick="quickSearch('housing')"         class="chip">housing</button>
+        <button onclick="quickSearch('COVID')"           class="chip">COVID</button>
+        <button onclick="quickSearch('poverty')"         class="chip">poverty</button>
+        <button onclick="quickSearch('education')"       class="chip">education</button>
+        <button onclick="quickSearch('transportation')"  class="chip">transportation</button>
+        <button onclick="quickSearch('unemployment')"    class="chip">unemployment</button>
+      </div>
+      <style>.chip { @apply px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white transition; }</style>
+
+      <!-- Source filters -->
+      <div class="mt-6 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm">
+        <span class="text-blue-300">Sources:</span>
+        <label class="flex items-center gap-1.5 text-white cursor-pointer select-none">
+          <input type="checkbox" class="source-filter w-4 h-4 rounded accent-orange-400"
+                 value="datagov" checked /> data.gov
+        </label>
+        <label class="flex items-center gap-1.5 text-white cursor-pointer select-none">
+          <input type="checkbox" class="source-filter w-4 h-4 rounded accent-orange-400"
+                 value="worldbank" checked /> World Bank
+        </label>
+        <label class="flex items-center gap-1.5 text-white cursor-pointer select-none">
+          <input type="checkbox" class="source-filter w-4 h-4 rounded accent-orange-400"
+                 value="socrata" checked /> Socrata Portals
+        </label>
+        <label class="flex items-center gap-1.5 text-white cursor-pointer select-none">
+          <input type="checkbox" class="source-filter w-4 h-4 rounded accent-orange-400"
+                 value="huggingface" /> Hugging Face
+        </label>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Main ── -->
+  <main class="max-w-4xl mx-auto px-4 py-8 flex-1 w-full">
+
+    <!-- Loading -->
+    <div id="loadingState" class="hidden flex-col items-center py-20 gap-4">
+      <div class="spinner"></div>
+      <p class="text-gray-400">Searching across data portals…</p>
+    </div>
+
+    <!-- Results header -->
+    <div id="resultsHeader" class="hidden items-center mb-5">
+      <p id="resultsCount" class="text-gray-600 font-medium"></p>
+    </div>
+
+    <!-- Cards -->
+    <div id="results" class="space-y-4"></div>
+
+    <!-- Empty -->
+    <div id="emptyState" class="hidden text-center py-20">
+      <p class="text-4xl mb-3">📭</p>
+      <p class="text-gray-600 text-lg">No datasets found.</p>
+      <p class="text-gray-400 mt-1">Try different keywords or enable more sources.</p>
+    </div>
+
+    <!-- Default / info cards -->
+    <div id="defaultState">
+      <h2 class="text-lg font-semibold text-gray-700 text-center mb-6">Where we search</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
+          <p class="text-3xl mb-2">🏛️</p>
+          <h3 class="font-semibold text-gray-800 mb-1">data.gov</h3>
+          <p class="text-gray-500 text-sm">
+            200,000+ U.S. federal datasets spanning climate, health, finance,
+            energy, agriculture, and more.
+          </p>
+        </div>
+        <div class="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
+          <p class="text-3xl mb-2">🌍</p>
+          <h3 class="font-semibold text-gray-800 mb-1">World Bank Open Data</h3>
+          <p class="text-gray-500 text-sm">
+            Global development indicators — GDP, poverty, health, education —
+            for 200+ countries over decades.
+          </p>
+        </div>
+        <div class="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
+          <p class="text-3xl mb-2">🏙️</p>
+          <h3 class="font-semibold text-gray-800 mb-1">Socrata Portals</h3>
+          <p class="text-gray-500 text-sm">
+            Datasets from hundreds of state, county, and city governments —
+            frequently including geospatial and mapping data.
+          </p>
+        </div>
+        <div class="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
+          <p class="text-3xl mb-2">🤗</p>
+          <h3 class="font-semibold text-gray-800 mb-1">Hugging Face Datasets</h3>
+          <p class="text-gray-500 text-sm">
+            Open ML/AI datasets for research and training — text, images,
+            audio, tabular, and more.
+          </p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="border-t border-gray-200 py-5 text-center text-xs text-gray-400">
+    Public Data Finder — data.gov &middot; World Bank &middot; Socrata &middot; Hugging Face
+  </footer>
+
+  <script>
+    // ── Source badge colours ─────────────────────────────────────────────────
+    const SOURCE_COLORS = {
+      'data.gov':    'bg-blue-100 text-blue-800 border-blue-200',
+      'World Bank':  'bg-emerald-100 text-emerald-800 border-emerald-200',
+      'Hugging Face':'bg-yellow-100 text-yellow-800 border-yellow-200',
+    };
+    function sourceColor(s) {
+      return SOURCE_COLORS[s] ?? 'bg-orange-100 text-orange-800 border-orange-200';
+    }
+
+    // ── Keyboard shortcut ────────────────────────────────────────────────────
+    document.getElementById('searchInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') performSearch();
+    });
+
+    function quickSearch(term) {
+      document.getElementById('searchInput').value = term;
+      performSearch();
+    }
+
+    // ── Main search function ─────────────────────────────────────────────────
+    async function performSearch() {
+      const query = document.getElementById('searchInput').value.trim();
+      if (!query) { document.getElementById('searchInput').focus(); return; }
+
+      const sources = [...document.querySelectorAll('.source-filter:checked')]
+                        .map(el => el.value);
+      if (!sources.length) { alert('Please select at least one source.'); return; }
+
+      setUIState('loading');
+
+      try {
+        const params = new URLSearchParams({ q: query });
+        sources.forEach(s => params.append('sources', s));
+
+        const resp  = await fetch(`/api/search?${params}`);
+        const data  = await resp.json();
+        const items = data.results || [];
+
+        if (items.length === 0) {
+          setUIState('empty');
+        } else {
+          document.getElementById('resultsCount').textContent =
+            `Found ${items.length} dataset${items.length !== 1 ? 's' : ''} for "${escHtml(query)}"`;
+          document.getElementById('results').innerHTML = items.map(renderCard).join('');
+          setUIState('results');
+        }
+      } catch (err) {
+        console.error(err);
+        document.getElementById('results').innerHTML =
+          `<div class="text-center py-8 text-red-500">
+             Error fetching results — please try again.
+           </div>`;
+        setUIState('results');
+      }
+    }
+
+    // ── UI state switcher ────────────────────────────────────────────────────
+    function setUIState(state) {
+      const ids = ['loadingState', 'resultsHeader', 'results', 'emptyState', 'defaultState'];
+      const show = {
+        loading: ['loadingState'],
+        results: ['resultsHeader', 'results'],
+        empty:   ['emptyState'],
+        default: ['defaultState'],
+      }[state] || [];
+
+      ids.forEach(id => {
+        const el = document.getElementById(id);
+        const visible = show.includes(id);
+        el.classList.toggle('hidden', !visible);
+        // loadingState and resultsHeader use flex
+        if (id === 'loadingState' || id === 'resultsHeader') {
+          el.classList.toggle('flex', visible);
+        }
+      });
+    }
+
+    // ── Card renderer ────────────────────────────────────────────────────────
+    function renderCard(ds) {
+      const color = sourceColor(ds.source);
+
+      const fmtBadges = (ds.formats || []).slice(0, 4)
+        .filter(Boolean)
+        .map(f => `<span class="px-1.5 py-0.5 bg-gray-100 text-gray-500 text-xs rounded font-mono">${escHtml(f)}</span>`)
+        .join('');
+
+      const tagBadges = (ds.tags || []).slice(0, 4)
+        .filter(Boolean)
+        .map(t => `<span class="px-2 py-0.5 bg-blue-50 text-blue-600 text-xs rounded-full">${escHtml(t)}</span>`)
+        .join('');
+
+      const viewBtn = ds.source_url
+        ? `<a href="${escAttr(ds.source_url)}" target="_blank" rel="noopener noreferrer"
+              class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium
+                     rounded-lg text-center transition-colors">View</a>`
+        : '';
+
+      const dlBtn = ds.download_url
+        ? `<a href="${escAttr(ds.download_url)}" target="_blank" rel="noopener noreferrer"
+              class="px-3 py-2 border border-gray-200 hover:bg-gray-50 text-gray-600
+                     text-sm rounded-lg text-center transition-colors">Download</a>`
+        : '';
+
+      return `
+        <div class="card bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <div class="flex gap-4">
+            <div class="flex-1 min-w-0">
+              <div class="flex flex-wrap items-center gap-2 mb-1.5">
+                <span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold border ${color}">
+                  ${escHtml(ds.source)}
+                </span>
+                ${ds.organization
+                  ? `<span class="text-xs text-gray-400 truncate max-w-xs">${escHtml(ds.organization)}</span>`
+                  : ''}
+              </div>
+              <h3 class="font-semibold text-gray-900 text-base leading-snug mb-1">
+                ${escHtml(ds.title)}
+              </h3>
+              ${ds.description
+                ? `<p class="text-gray-500 text-sm leading-relaxed line-clamp-2">
+                     ${escHtml(ds.description)}
+                   </p>`
+                : ''}
+              ${fmtBadges || tagBadges
+                ? `<div class="mt-2.5 flex flex-wrap gap-1.5">${fmtBadges}${tagBadges}</div>`
+                : ''}
+            </div>
+            <div class="flex flex-col gap-2 shrink-0 min-w-[90px]">
+              ${viewBtn}
+              ${dlBtn}
+            </div>
+          </div>
+        </div>`;
+    }
+
+    // ── Sanitisation helpers ─────────────────────────────────────────────────
+    function escHtml(s) {
+      if (!s) return '';
+      return String(s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+    function escAttr(s) {
+      if (!s || !String(s).match(/^https?:\/\//i)) return '#';
+      return escHtml(s);
+    }
+  </script>
+</body>
+</html>
